@@ -8,7 +8,7 @@ const { networkConfig } = createNetworkConfig({
   localnet: { url: getFullnodeUrl('localnet') },
   devnet: { url: getFullnodeUrl('devnet') },
   testnet: { 
-    url: 'https://sui-testnet-endpoint.mystenlabs.com/'  // Using Mysten Labs endpoint to avoid rate limits
+    url: 'https://fullnode.testnet.sui.io/'  // Standard Sui testnet endpoint
   },
   mainnet: { url: getFullnodeUrl('mainnet') },
 });
@@ -18,7 +18,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 2, // Reduce retry attempts
+      retry: 1, // Reduce retry attempts to 1
+      retryDelay: 2000, // Increase delay between retries
       refetchOnWindowFocus: false, // Disable refetching on window focus to reduce requests
     },
   },

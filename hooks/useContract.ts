@@ -8,7 +8,7 @@ import { Certificate } from '../types';
 export const CONTRACT_CONFIG = {
   PACKAGE_ID: "0xf1cb82954194f281b4bcddee3b8922b81322cd742d2ab23d169dfaf11883c736",
   REGISTRY_ID: "0x6c0bab54d2c4ba3caba62063cb7e972370e60deb9dbbe2fd46f825897bde0bdd", 
-  NETWORK: "https://sui-testnet-endpoint.mystenlabs.com/", 
+  NETWORK: "https://fullnode.testnet.sui.io/", 
   MODULE_NAME: "skillpass",
   CERTIFICATE_REGISTRY: "certificate_registry",
   ADMIN_ADDRESS: "0x83b3e15b0f43aacdbd39ede604391ef9720df83b33420fb72deef7f8e795cbe9"
@@ -128,15 +128,15 @@ export function useCertificates() {
       console.error('Error fetching certificates:', err);
       
       // Implement retry logic with max attempts to prevent infinite loops
-      if (retryCount < 3) {
-        console.log(`Retrying certificate fetch (${retryCount + 1}/3)`);
+      if (retryCount < 2) { // Reduce retry attempts to 2
+        console.log(`Retrying certificate fetch (${retryCount + 1}/2)`);
         setTimeout(() => {
           fetchCertificatesInternal(retryCount + 1);
-        }, 1000 * (retryCount + 1)); // Exponential backoff
+        }, 2000 * (retryCount + 1)); // Increase delay between retries
         return;
       }
       
-      setError('Failed to fetch certificates after multiple attempts. Please check your connection and try again.');
+      setError('Failed to fetch certificates. Please check your internet connection and try again. (Error: ' + (err as Error).message + ')');
     } finally {
       setLoading(false);
     }
@@ -269,15 +269,15 @@ export function useIssuedCertificates() {
       console.error('Error fetching issued certificates:', err);
       
       // Implement retry logic with max attempts to prevent infinite loops
-      if (retryCount < 3) {
-        console.log(`Retrying issued certificate fetch (${retryCount + 1}/3)`);
+      if (retryCount < 2) { // Reduce retry attempts to 2
+        console.log(`Retrying issued certificate fetch (${retryCount + 1}/2)`);
         setTimeout(() => {
           fetchIssuedCertificatesInternal(retryCount + 1);
-        }, 1000 * (retryCount + 1)); // Exponential backoff
+        }, 2000 * (retryCount + 1)); // Increase delay between retries
         return;
       }
       
-      setError('Failed to fetch issued certificates after multiple attempts. Please check your connection and try again.');
+      setError('Failed to fetch issued certificates. Please check your internet connection and try again. (Error: ' + (err as Error).message + ')');
     } finally {
       setLoading(false);
     }
