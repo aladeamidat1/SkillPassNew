@@ -46,7 +46,11 @@ const UniversityPortal: React.FC = () => {
   useEffect(() => {
     if (!mintLoading && !encryptedMintLoading) {
       console.log('Refetching certificates after minting');
-      refetchCertificates();
+      // Add delay before refetching to allow blockchain to process the transaction
+      const timer = setTimeout(() => {
+        refetchCertificates();
+      }, 3000); // 3 second delay
+      return () => clearTimeout(timer);
     }
   }, [mintLoading, encryptedMintLoading, refetchCertificates]);
 
@@ -127,8 +131,10 @@ const UniversityPortal: React.FC = () => {
         formRef.current.reset();
       }
       
-      // Refetch certificates to update the list
-      refetchCertificates();
+      // Refetch certificates to update the list after a delay to allow blockchain processing
+      setTimeout(() => {
+        refetchCertificates();
+      }, 3000); // 3 second delay
     } catch (error: any) {
       console.error('Failed to issue certificate:', error);
       
@@ -153,8 +159,10 @@ const UniversityPortal: React.FC = () => {
     try {
       await revokeCertificate(certificateId, 'Revoked by university');
       showToast('✅ Certificate revoked successfully!', 'success');
-      // Refresh the certificates list
-      refetchCertificates();
+      // Refresh the certificates list after a delay
+      setTimeout(() => {
+        refetchCertificates();
+      }, 2000); // 2 second delay
     } catch (error) {
       console.error('Failed to revoke certificate:', error);
       showToast('❌ Failed to revoke certificate. Please check the console for details.', 'error');

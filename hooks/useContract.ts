@@ -48,7 +48,10 @@ export function useCertificates() {
       return;
     }
 
-    setLoading(true);
+    // Don't set loading to true on retries to prevent UI flickering
+    if (retryCount === 0) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -62,11 +65,15 @@ export function useCertificates() {
           showContent: true,
           showDisplay: true,
         },
+        limit: 50 // Add limit to prevent rate limiting
       });
 
       const certificateData: SuiCertificate[] = [];
 
-      for (const obj of ownedObjects.data) {
+      // Limit the number of certificates we process to prevent rate limiting
+      const limitedObjects = ownedObjects.data.slice(0, 20);
+
+      for (const obj of limitedObjects) {
         if (obj.data?.content && 'fields' in obj.data.content) {
           const fields = obj.data.content.fields as any;
           
@@ -128,15 +135,17 @@ export function useCertificates() {
       console.error('Error fetching certificates:', err);
       
       // Implement retry logic with max attempts to prevent infinite loops
-      if (retryCount < 2) { // Reduce retry attempts to 2
-        console.log(`Retrying certificate fetch (${retryCount + 1}/2)`);
+      // Only retry on network errors, not on CORS errors
+      const errorMessage = (err as Error).message;
+      if (retryCount < 1 && !errorMessage.includes('CORS') && !errorMessage.includes('ERR_FAILED')) { // Reduce retry attempts to 1 and avoid retrying on CORS/ERR_FAILED
+        console.log(`Retrying certificate fetch (${retryCount + 1}/1)`);
         setTimeout(() => {
           fetchCertificatesInternal(retryCount + 1);
-        }, 2000 * (retryCount + 1)); // Increase delay between retries
+        }, 3000); // Fixed 3 second delay
         return;
       }
       
-      setError('Failed to fetch certificates. Please check your internet connection and try again. (Error: ' + (err as Error).message + ')');
+      setError('Failed to fetch certificates. Please check your internet connection and try again. (Error: ' + errorMessage + ')');
     } finally {
       setLoading(false);
     }
@@ -149,8 +158,12 @@ export function useCertificates() {
 
   useEffect(() => {
     // Only fetch when account changes, not on every render
+    // Add a delay to prevent immediate requests on mount
     if (currentAccount?.address) {
-      fetchCertificates();
+      const timer = setTimeout(() => {
+        fetchCertificates();
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [currentAccount?.address]);
 
@@ -171,7 +184,10 @@ export function useIssuedCertificates() {
       return;
     }
 
-    setLoading(true);
+    // Don't set loading to true on retries to prevent UI flickering
+    if (retryCount === 0) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -180,7 +196,7 @@ export function useIssuedCertificates() {
         query: {
           MoveEventType: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.CERTIFICATE_REGISTRY}::CertificateIssued`
         },
-        limit: 100
+        limit: 50 // Reduce limit to decrease load
       });
 
       // Filter events to only those issued by current university
@@ -195,7 +211,10 @@ export function useIssuedCertificates() {
       // Fetch certificate details
       const certificateData: SuiCertificate[] = [];
       
-      for (const certId of certificateIds) {
+      // Limit the number of certificates we fetch to prevent rate limiting
+      const limitedCertificateIds = certificateIds.slice(0, 20);
+      
+      for (const certId of limitedCertificateIds) {
         try {
           const response = await suiClient.getObject({
             id: certId,
@@ -269,15 +288,17 @@ export function useIssuedCertificates() {
       console.error('Error fetching issued certificates:', err);
       
       // Implement retry logic with max attempts to prevent infinite loops
-      if (retryCount < 2) { // Reduce retry attempts to 2
-        console.log(`Retrying issued certificate fetch (${retryCount + 1}/2)`);
+      // Only retry on network errors, not on CORS errors
+      const errorMessage = (err as Error).message;
+      if (retryCount < 1 && !errorMessage.includes('CORS') && !errorMessage.includes('ERR_FAILED')) { // Reduce retry attempts to 1 and avoid retrying on CORS/ERR_FAILED
+        console.log(`Retrying issued certificate fetch (${retryCount + 1}/1)`);
         setTimeout(() => {
           fetchIssuedCertificatesInternal(retryCount + 1);
-        }, 2000 * (retryCount + 1)); // Increase delay between retries
+        }, 3000); // Fixed 3 second delay
         return;
       }
       
-      setError('Failed to fetch issued certificates. Please check your internet connection and try again. (Error: ' + (err as Error).message + ')');
+      setError('Failed to fetch issued certificates. Please check your internet connection and try again. (Error: ' + errorMessage + ')');
     } finally {
       setLoading(false);
     }
@@ -290,8 +311,12 @@ export function useIssuedCertificates() {
 
   useEffect(() => {
     // Only fetch when account changes, not on every render
+    // Add a delay to prevent immediate requests on mount
     if (currentAccount?.address) {
-      fetchIssuedCertificates();
+      const timer = setTimeout(() => {
+        fetchIssuedCertificates();
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [currentAccount?.address]);
 

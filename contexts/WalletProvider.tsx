@@ -18,8 +18,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 1, // Reduce retry attempts to 1
-      retryDelay: 2000, // Increase delay between retries
+      retry: 0, // Disable automatic retries to prevent infinite loops
       refetchOnWindowFocus: false, // Disable refetching on window focus to reduce requests
     },
   },
