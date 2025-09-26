@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkillPass - Verifiable Credentials</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+                sans: ['Inter', 'sans-serif'],
+                heading: ['Space Grotesk', 'sans-serif'],
+            },
+            colors: {
+              'primary': {
+                'light': '#a78bfa',
+                'DEFAULT': '#8b5cf6',
+                'dark': '#7c3aed',
+              },
+              'secondary': {
+                'light': '#67e8f9',
+                'DEFAULT': '#22d3ee',
+                'dark': '#06b6d4',
+              },
+              'background': {
+                'light': '#f3f4f6',
+                'DEFAULT': '#0a0a0f',
+                'dark': '#0f172a',
+              },
+              'surface': {
+                'light': '#ffffff',
+                'DEFAULT': '#1e293b',
+                'dark': '#334155'
+              },
+              'text-primary': {
+                'light': '#111827',
+                'DEFAULT': '#f8fafc'
+              },
+              'text-secondary': {
+                'light': '#6b7280',
+                'DEFAULT': '#94a3b8'
+              },
+            },
+            animation: {
+              'gradient-bg': 'gradient-bg 15s ease infinite',
+              'fade-in': 'fade-in 0.5s ease-out',
+              'slide-up': 'slide-up 0.5s ease-out',
+              'marquee': 'marquee 40s linear infinite',
+              'float': 'float 6s ease-in-out infinite',
+            },
+            keyframes: {
+              'gradient-bg': {
+                '0%, 100%': { backgroundPosition: '0% 50%' },
+                '50%': { backgroundPosition: '100% 50%' },
+              },
+              'fade-in': {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              'slide-up': {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              'marquee': {
+                '0%': { transform: 'translateX(0%)' },
+                '100%': { transform: 'translateX(-100%)' },
+              },
+              'float': {
+                '0%, 100%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.544.0",
+    "three": "https://aistudiocdn.com/three@^0.166.1",
+    "three/": "https://aistudiocdn.com/three@^0.166.1/",
+    "@react-three/fiber": "https://aistudiocdn.com/@react-three/fiber@^9.3.0",
+    "@react-three/drei": "https://aistudiocdn.com/@react-three/drei@^10.7.6",
+    "maath/": "https://aistudiocdn.com/maath@^0.10.7/",
+    "@mysten/dapp-kit": "https://cdn.skypack.dev/@mysten/dapp-kit",
+    "@mysten/sui": "https://cdn.skypack.dev/@mysten/sui",
+    "@tanstack/react-query": "https://cdn.skypack.dev/@tanstack/react-query"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
