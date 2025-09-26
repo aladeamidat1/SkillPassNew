@@ -1,7 +1,30 @@
-import React, { useState } from 'react';
-import { useMintCertificate, useMintEncryptedCertificate, useRevokeCertificate, useVerifyContract, useUniversityAuth, CONTRACT_CONFIG } from '../hooks/useContract';
+import React, { useState, useRef, useEffect } from 'react';
+import { useMintCertificate, useMintEncryptedCertificate, useRevokeCertificate, useVerifyContract, useUniversityAuth, useIssuedCertificates, CONTRACT_CONFIG } from '../hooks/useContract';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { PlusCircle, Trash2, Shield, Lock, Unlock, Award, Loader2, AlertTriangle, CheckCircle, UserX } from 'lucide-react';
+import { PlusCircle, Trash2, Shield, Lock, Unlock, Award, Loader2, AlertTriangle, CheckCircle, UserX, X } from 'lucide-react';
+
+// Toast component
+const Toast: React.FC<{ 
+  message: string; 
+  type: 'success' | 'error' | 'info'; 
+  onClose: () => void 
+}> = ({ message, type, onClose }) => {
+  const bgColor = type === 'success' ? 'bg-green-500' : 
+                 type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+  
+  const icon = type === 'success' ? <CheckCircle className="w-5 h-5" /> : 
+              type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <Award className="w-5 h-5" />;
+  
+  return (
+    <div className={`fixed top-4 right-4 ${bgColor} text-white p-4 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in`}>
+      {icon}
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-2 hover:bg-white/20 p-1 rounded-full">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
 
 const UniversityPortal: React.FC = () => {
   const currentAccount = useCurrentAccount();
@@ -10,10 +33,20 @@ const UniversityPortal: React.FC = () => {
   const { revokeCertificate, loading: revokeLoading } = useRevokeCertificate();
   const { contractStatus, verifyContract } = useVerifyContract();
   const { isAuthorized, loading: authLoading, checkAuthorization } = useUniversityAuth();
+  const { certificates: issuedCertificates, loading: certificatesLoading, refetch: refetchCertificates } = useIssuedCertificates();
   
   const [showForm, setShowForm] = useState(false);
   const [useEncryption, setUseEncryption] = useState(false);
-  const [issuedCertificates, setIssuedCertificates] = useState<any[]>([]);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+  
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Refetch certificates when a new one is issued
+  useEffect(() => {
+    if (!mintLoading && !encryptedMintLoading) {
+      refetchCertificates();
+    }
+  }, [mintLoading, encryptedMintLoading, refetchCertificates]);
 
   if (!currentAccount) {
     return (
@@ -30,6 +63,13 @@ const UniversityPortal: React.FC = () => {
       </div>
     );
   }
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 5000);
+  };
 
   const handleIssueCertificate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -55,27 +95,33 @@ const UniversityPortal: React.FC = () => {
         };
         
         await mintEncryptedCertificate(mockEncryptedData);
-        alert('🔐 Encrypted certificate issued successfully! Privacy protected with SEAL encryption.');
+        showToast('🔐 Encrypted certificate issued successfully! Privacy protected with SEAL encryption.', 'success');
       } else {
         await mintCertificate(certificateData);
-        alert('✅ Certificate issued successfully!');
+        showToast('✅ Certificate issued successfully!', 'success');
       }
       
       setShowForm(false);
-      event.currentTarget.reset();
+      // Reset form using ref instead of event.currentTarget
+      if (formRef.current) {
+        formRef.current.reset();
+      }
+      
+      // Refetch certificates to update the list
+      refetchCertificates();
     } catch (error: any) {
       console.error('Failed to issue certificate:', error);
       
       let errorMessage = 'Failed to issue certificate.';
       if (error.message?.includes('Package object does not exist')) {
-        errorMessage = `❌ Contract not found on testnet. Please verify the package ID: ${CONTRACT_CONFIG.PACKAGE_ID}`;
+        errorMessage = `Contract not found on testnet. Please verify the package ID: ${CONTRACT_CONFIG.PACKAGE_ID}`;
       } else if (error.message?.includes('ENotAuthorizedUniversity')) {
-        errorMessage = '❌ Only authorized universities can mint certificates. Please contact the admin to be added as a university.';
+        errorMessage = 'Only authorized universities can mint certificates. Please contact the admin to be added as a university.';
       } else if (error.message) {
-        errorMessage = `❌ ${error.message}`;
+        errorMessage = error.message;
       }
       
-      alert(errorMessage);
+      showToast(`❌ ${errorMessage}`, 'error');
     }
   };
 
@@ -86,16 +132,26 @@ const UniversityPortal: React.FC = () => {
 
     try {
       await revokeCertificate(certificateId, 'Revoked by university');
-      alert('✅ Certificate revoked successfully!');
+      showToast('✅ Certificate revoked successfully!', 'success');
       // Refresh the certificates list
+      refetchCertificates();
     } catch (error) {
       console.error('Failed to revoke certificate:', error);
-      alert('❌ Failed to revoke certificate. Please check the console for details.');
+      showToast('❌ Failed to revoke certificate. Please check the console for details.', 'error');
     }
   };
   
   return (
     <div className="animate-fade-in space-y-12">
+      {/* Toast notification */}
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
+      
       <div className="text-center">
         <h2 className="text-4xl font-extrabold tracking-tight text-text-primary-light dark:text-text-primary sm:text-5xl font-heading">
           University Portal
@@ -228,7 +284,7 @@ const UniversityPortal: React.FC = () => {
 
         {showForm && (
           <div className="bg-surface-light/80 dark:bg-surface/80 p-8 rounded-xl shadow-2xl mb-8 animate-slide-up border border-primary/20 backdrop-blur-sm">
-            <form onSubmit={handleIssueCertificate} className="space-y-6">
+            <form ref={formRef} onSubmit={handleIssueCertificate} className="space-y-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-primary-light dark:text-primary-dark font-heading">
                   New Certificate Details
@@ -344,7 +400,14 @@ const UniversityPortal: React.FC = () => {
         <div>
           <h3 className="text-2xl font-bold mb-4 font-heading">Issued Credentials</h3>
           <div className="bg-surface-light/80 dark:bg-surface/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden border border-white/10">
-            {issuedCertificates.length === 0 ? (
+            {certificatesLoading ? (
+              <div className="p-8 text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-text-secondary-light dark:text-text-secondary">
+                  Loading issued certificates...
+                </p>
+              </div>
+            ) : issuedCertificates.length === 0 ? (
               <div className="p-8 text-center">
                 <Award className="w-12 h-12 text-text-secondary-light dark:text-text-secondary mx-auto mb-4" />
                 <p className="text-text-secondary-light dark:text-text-secondary">
@@ -353,39 +416,56 @@ const UniversityPortal: React.FC = () => {
               </div>
             ) : (
               <ul className="divide-y divide-white/10 dark:divide-white/10">
-                {issuedCertificates.map(cert => (
-                  <li key={cert.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-primary/5 transition-colors">
-                    <div className="flex-grow mb-2 sm:mb-0">
-                      <p className="font-semibold text-text-primary-light dark:text-text-primary">
-                        {cert.credentialType}
-                      </p>
-                      <p className="text-sm text-text-secondary-light dark:text-text-secondary font-mono truncate">
-                        {cert.id}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-sm font-bold ${
-                        cert.is_valid ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {cert.is_valid ? 'ACTIVE' : 'REVOKED'}
-                      </span>
-                      {cert.is_valid && (
-                        <button 
-                          onClick={() => handleRevoke(cert.id)} 
-                          disabled={revokeLoading}
-                          className="flex items-center gap-1 text-sm font-semibold p-2 rounded-md transition-colors text-red-400 hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {revokeLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                          Revoke
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                {issuedCertificates.map(cert => {
+                  // Determine what to display as the credential type
+                  let displayCredentialType = 'Unknown Credential';
+                  if (cert.credential_type && cert.credential_type.trim() !== '') {
+                    displayCredentialType = cert.credential_type;
+                  } else if (cert.encrypted_credential_type && cert.encrypted_credential_type.length > 0) {
+                    displayCredentialType = '[ENCRYPTED]';
+                  }
+                  
+                  return (
+                    <li key={cert.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-primary/5 transition-colors">
+                      <div className="flex-grow mb-2 sm:mb-0">
+                        <p className="font-semibold text-text-primary-light dark:text-text-primary">
+                          {displayCredentialType}
+                        </p>
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary font-mono truncate">
+                          ID: {cert.id}
+                        </p>
+                        <p className="text-xs text-text-secondary-light dark:text-text-secondary">
+                          Student: {cert.student_address?.slice(0, 8)}...
+                        </p>
+                        <p className="text-xs text-text-secondary-light dark:text-text-secondary">
+                          Issued: {new Date(cert.issue_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-sm font-bold ${
+                          cert.is_valid ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {cert.is_valid ? 'ACTIVE' : 'REVOKED'}
+                        </span>
+                        {cert.is_valid && (
+                          <button 
+                            onClick={() => handleRevoke(cert.id)} 
+                            disabled={revokeLoading}
+                            className="flex items-center gap-1 text-sm font-semibold p-2 rounded-md transition-colors text-red-400 hover:bg-red-400/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {revokeLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+
               </ul>
             )}
           </div>

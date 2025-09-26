@@ -69,6 +69,33 @@ export function useCertificates() {
       for (const obj of ownedObjects.data) {
         if (obj.data?.content && 'fields' in obj.data.content) {
           const fields = obj.data.content.fields as any;
+          
+          // Extract credential type - handle both encrypted and plain text
+          let credentialType = '';
+          if (fields.credential_type && fields.credential_type.length > 0) {
+            // For non-encrypted certificates
+            try {
+              credentialType = new TextDecoder().decode(new Uint8Array(fields.credential_type));
+            } catch (e) {
+              credentialType = fields.credential_type.toString();
+            }
+          } else if (fields.encrypted_credential_type && fields.encrypted_credential_type.length > 0) {
+            // For encrypted certificates, we show it as encrypted
+            credentialType = '[ENCRYPTED]';
+          }
+          
+          // Extract grade if available
+          let grade = '';
+          if (fields.grade && fields.grade.length > 0) {
+            try {
+              grade = new TextDecoder().decode(new Uint8Array(fields.grade[0]));
+            } catch (e) {
+              grade = fields.grade[0].toString();
+            }
+          } else if (fields.encrypted_grade && fields.encrypted_grade.length > 0) {
+            grade = '[ENCRYPTED]';
+          }
+          
           certificateData.push({
             id: obj.data.objectId,
             student_address: fields.student_address || '',
@@ -80,8 +107,8 @@ export function useCertificates() {
             public_key_hash: fields.public_key_hash ? new Uint8Array(fields.public_key_hash) : undefined,
             access_policy: fields.access_policy || '',
             // Legacy fields
-            credential_type: fields.credential_type || '',
-            grade: fields.grade?.[0] || '',
+            credential_type: credentialType,
+            grade: grade,
             issue_date: parseInt(fields.issue_date) || Date.now(),
             walrus_evidence_blob: fields.walrus_evidence_blob?.[0] ? new Uint8Array(fields.walrus_evidence_blob[0]) : undefined,
             is_valid: fields.is_valid || false,
@@ -92,7 +119,7 @@ export function useCertificates() {
       setCertificates(certificateData);
     } catch (err) {
       console.error('Error fetching certificates:', err);
-      setError('Failed to fetch certificates');
+      setError('Failed to fetch certificates: ' + (err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -103,6 +130,113 @@ export function useCertificates() {
   }, [currentAccount?.address]);
 
   return { certificates, loading, error, refetch: fetchCertificates };
+}
+
+// Hook to fetch certificates issued by current university
+export function useIssuedCertificates() {
+  const currentAccount = useCurrentAccount();
+  const suiClient = useSuiClient();
+  const [certificates, setCertificates] = useState<SuiCertificate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchIssuedCertificates = async () => {
+    if (!currentAccount) {
+      setCertificates([]);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get events for certificates issued by this university
+      const events = await suiClient.queryEvents({
+        query: {
+          MoveEventType: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.CERTIFICATE_REGISTRY}::CertificateIssued`
+        },
+        limit: 100
+      });
+
+      // Filter events to only those issued by current university
+      const universityEvents = events.data.filter(event => 
+        (event.parsedJson as any)?.university === currentAccount.address
+      );
+
+      // Get certificate objects for these events
+      const certificateIds = universityEvents.map(event => (event.parsedJson as any)?.certificate_id).filter(Boolean);
+      
+      // Fetch certificate details
+      const certificateData: SuiCertificate[] = [];
+      
+      for (const certId of certificateIds) {
+        try {
+          const response = await suiClient.getObject({
+            id: certId,
+            options: {
+              showContent: true,
+              showDisplay: true,
+            },
+          });
+
+          if (response.data?.content && 'fields' in response.data.content) {
+            const fields = response.data.content.fields as any;
+            
+            // Extract credential type - handle both encrypted and plain text
+            let credentialType = '';
+            if (fields.credential_type && fields.credential_type.length > 0) {
+              // For non-encrypted certificates
+              credentialType = new TextDecoder().decode(new Uint8Array(fields.credential_type));
+            } else if (fields.encrypted_credential_type && fields.encrypted_credential_type.length > 0) {
+              // For encrypted certificates, we show it as encrypted
+              credentialType = '[ENCRYPTED]';
+            }
+            
+            // Extract grade if available
+            let grade = '';
+            if (fields.grade && fields.grade.length > 0) {
+              grade = new TextDecoder().decode(new Uint8Array(fields.grade[0]));
+            } else if (fields.encrypted_grade && fields.encrypted_grade.length > 0) {
+              grade = '[ENCRYPTED]';
+            }
+            
+            certificateData.push({
+              id: response.data.objectId,
+              student_address: fields.student_address || '',
+              university: fields.university || '',
+              // Handle both encrypted and legacy certificates
+              encrypted_credential_type: fields.encrypted_credential_type ? new Uint8Array(fields.encrypted_credential_type) : undefined,
+              encrypted_grade: fields.encrypted_grade?.[0] ? new Uint8Array(fields.encrypted_grade[0]) : undefined,
+              encryption_params: fields.encryption_params ? new Uint8Array(fields.encryption_params) : undefined,
+              public_key_hash: fields.public_key_hash ? new Uint8Array(fields.public_key_hash) : undefined,
+              access_policy: fields.access_policy || '',
+              // Legacy fields
+              credential_type: credentialType,
+              grade: grade,
+              issue_date: parseInt(fields.issue_date) || Date.now(),
+              walrus_evidence_blob: fields.walrus_evidence_blob?.[0] ? new Uint8Array(fields.walrus_evidence_blob[0]) : undefined,
+              is_valid: fields.is_valid || false,
+            });
+          }
+        } catch (err) {
+          console.error(`Error fetching certificate ${certId}:`, err);
+        }
+      }
+
+      setCertificates(certificateData);
+    } catch (err) {
+      console.error('Error fetching issued certificates:', err);
+      setError('Failed to fetch issued certificates: ' + (err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIssuedCertificates();
+  }, [currentAccount?.address]);
+
+  return { certificates, loading, error, refetch: fetchIssuedCertificates };
 }
 
 // Hook to mint certificate (University function)
@@ -381,7 +515,9 @@ export function useUniversityManagement() {
     });
   };
 
-  const isAdmin = currentAccount?.address === CONTRACT_CONFIG.ADMIN_ADDRESS;
+  // Check if current user is admin (including your specific address)
+  const isAdmin = currentAccount?.address === CONTRACT_CONFIG.ADMIN_ADDRESS || 
+                 currentAccount?.address === '0xc9b77d442570dafd4737da69ad2d3eadd36eb5eca8ecd021037979b117c35e2d';
 
   return { addUniversity, removeUniversity, isAdmin, loading };
 }
@@ -400,9 +536,9 @@ export function useUniversityAuth() {
 
     setLoading(true);
     try {
-      // For demo purposes, we'll show this is not authorized
-      // The admin can add universities through the admin dashboard
-      setIsAuthorized(false);
+      // For demo purposes, we'll show this is authorized for your specific address
+      const isYourAddress = currentAccount.address === '0xc9b77d442570dafd4737da69ad2d3eadd36eb5eca8ecd021037979b117c35e2d';
+      setIsAuthorized(isYourAddress);
     } catch (error) {
       console.error('Error checking university authorization:', error);
       setIsAuthorized(false);
@@ -416,6 +552,50 @@ export function useUniversityAuth() {
   }, [currentAccount?.address]);
 
   return { isAuthorized, loading, checkAuthorization };
+}
+
+// Hook to transfer admin privileges
+export function useTransferAdmin() {
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const currentAccount = useCurrentAccount();
+  const [loading, setLoading] = useState(false);
+
+  const transferAdmin = async (newAdminAddress: string) => {
+    if (currentAccount?.address !== CONTRACT_CONFIG.ADMIN_ADDRESS) {
+      throw new Error('Only current admin can transfer admin privileges');
+    }
+
+    setLoading(true);
+    const tx = new Transaction();
+    
+    tx.moveCall({
+      target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.CERTIFICATE_REGISTRY}::transfer_admin`,
+      arguments: [
+        tx.object(CONTRACT_CONFIG.REGISTRY_ID),
+        tx.pure.address(newAdminAddress)
+      ]
+    });
+
+    return new Promise((resolve, reject) => {
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            setLoading(false);
+            resolve(result);
+          },
+          onError: (error) => {
+            setLoading(false);
+            reject(error);
+          },
+        }
+      );
+    });
+  };
+
+  const isCurrentAdmin = currentAccount?.address === CONTRACT_CONFIG.ADMIN_ADDRESS;
+
+  return { transferAdmin, isCurrentAdmin, loading };
 }
 
 // Utility function to verify contract deployment
