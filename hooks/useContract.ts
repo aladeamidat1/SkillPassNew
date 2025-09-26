@@ -72,16 +72,21 @@ export function useCertificates() {
           
           // Extract credential type - handle both encrypted and plain text
           let credentialType = '';
-          if (fields.credential_type && fields.credential_type.length > 0) {
-            // For non-encrypted certificates
+          if (fields.credential_type && Array.isArray(fields.credential_type)) {
+            // For non-encrypted certificates stored as vector<u8>
             try {
               credentialType = new TextDecoder().decode(new Uint8Array(fields.credential_type));
             } catch (e) {
               credentialType = fields.credential_type.toString();
             }
+          } else if (fields.credential_type && typeof fields.credential_type === 'string') {
+            // For non-encrypted certificates stored as string
+            credentialType = fields.credential_type;
           } else if (fields.encrypted_credential_type && fields.encrypted_credential_type.length > 0) {
             // For encrypted certificates, we show it as encrypted
             credentialType = '[ENCRYPTED]';
+          } else {
+            credentialType = 'Unknown Credential';
           }
           
           // Extract grade if available
@@ -94,6 +99,8 @@ export function useCertificates() {
             }
           } else if (fields.encrypted_grade && fields.encrypted_grade.length > 0) {
             grade = '[ENCRYPTED]';
+          } else {
+            grade = 'Not specified';
           }
           
           certificateData.push({
@@ -158,19 +165,29 @@ export function useIssuedCertificates() {
         limit: 100
       });
 
+      console.log('Found events:', events.data.length);
+      console.log('Current university:', currentAccount.address);
+
       // Filter events to only those issued by current university
-      const universityEvents = events.data.filter(event => 
-        (event.parsedJson as any)?.university === currentAccount.address
-      );
+      const universityEvents = events.data.filter(event => {
+        const university = (event.parsedJson as any)?.university;
+        console.log('Event university:', university);
+        return university === currentAccount.address;
+      });
+
+      console.log('University events:', universityEvents.length);
 
       // Get certificate objects for these events
       const certificateIds = universityEvents.map(event => (event.parsedJson as any)?.certificate_id).filter(Boolean);
+      
+      console.log('Certificate IDs to fetch:', certificateIds);
       
       // Fetch certificate details
       const certificateData: SuiCertificate[] = [];
       
       for (const certId of certificateIds) {
         try {
+          console.log('Fetching certificate:', certId);
           const response = await suiClient.getObject({
             id: certId,
             options: {
@@ -179,25 +196,42 @@ export function useIssuedCertificates() {
             },
           });
 
+          console.log('Certificate response:', response);
+
           if (response.data?.content && 'fields' in response.data.content) {
             const fields = response.data.content.fields as any;
             
             // Extract credential type - handle both encrypted and plain text
             let credentialType = '';
-            if (fields.credential_type && fields.credential_type.length > 0) {
-              // For non-encrypted certificates
-              credentialType = new TextDecoder().decode(new Uint8Array(fields.credential_type));
+            if (fields.credential_type && Array.isArray(fields.credential_type)) {
+              // For non-encrypted certificates stored as vector<u8>
+              try {
+                credentialType = new TextDecoder().decode(new Uint8Array(fields.credential_type));
+              } catch (e) {
+                credentialType = fields.credential_type.toString();
+              }
+            } else if (fields.credential_type && typeof fields.credential_type === 'string') {
+              // For non-encrypted certificates stored as string
+              credentialType = fields.credential_type;
             } else if (fields.encrypted_credential_type && fields.encrypted_credential_type.length > 0) {
               // For encrypted certificates, we show it as encrypted
               credentialType = '[ENCRYPTED]';
+            } else {
+              credentialType = 'Unknown Credential';
             }
             
             // Extract grade if available
             let grade = '';
             if (fields.grade && fields.grade.length > 0) {
-              grade = new TextDecoder().decode(new Uint8Array(fields.grade[0]));
+              try {
+                grade = new TextDecoder().decode(new Uint8Array(fields.grade[0]));
+              } catch (e) {
+                grade = fields.grade[0].toString();
+              }
             } else if (fields.encrypted_grade && fields.encrypted_grade.length > 0) {
               grade = '[ENCRYPTED]';
+            } else {
+              grade = 'Not specified';
             }
             
             certificateData.push({
@@ -223,6 +257,7 @@ export function useIssuedCertificates() {
         }
       }
 
+      console.log('Final certificate data:', certificateData);
       setCertificates(certificateData);
     } catch (err) {
       console.error('Error fetching issued certificates:', err);
@@ -525,6 +560,7 @@ export function useUniversityManagement() {
 // Hook to check if current user is an authorized university
 export function useUniversityAuth() {
   const currentAccount = useCurrentAccount();
+  const suiClient = useSuiClient();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -536,9 +572,16 @@ export function useUniversityAuth() {
 
     setLoading(true);
     try {
-      // For demo purposes, we'll show this is authorized for your specific address
-      const isYourAddress = currentAccount.address === '0xc9b77d442570dafd4737da69ad2d3eadd36eb5eca8ecd021037979b117c35e2d';
-      setIsAuthorized(isYourAddress);
+      // Check if the user is authorized as a university by querying the registry
+      // For demo purposes, we'll check against known addresses
+      // In a production environment, you would implement a proper query mechanism
+      const authorizedAddresses = [
+        '0xc9b77d442570dafd4737da69ad2d3eadd36eb5eca8ecd021037979b117c35e2d',
+        CONTRACT_CONFIG.ADMIN_ADDRESS
+      ];
+      
+      const isAuthorizedUniversity = authorizedAddresses.includes(currentAccount.address);
+      setIsAuthorized(isAuthorizedUniversity);
     } catch (error) {
       console.error('Error checking university authorization:', error);
       setIsAuthorized(false);
@@ -554,43 +597,44 @@ export function useUniversityAuth() {
   return { isAuthorized, loading, checkAuthorization };
 }
 
-// Hook to transfer admin privileges
+// Hook to check if an address is an authorized university (NEW)
+export function useCheckUniversityAuthorization() {
+  const suiClient = useSuiClient();
+  const [loading, setLoading] = useState(false);
+
+  const checkUniversityAuthorization = async (universityAddress: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      // In a real implementation, you would query the smart contract table
+      // This is a placeholder implementation
+      console.log('Checking authorization for university:', universityAddress);
+      // Return true for demo purposes
+      return true;
+    } catch (error) {
+      console.error('Error checking university authorization:', error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { checkUniversityAuthorization, loading };
+}
+
+// Hook to transfer admin privileges (FIXED - removed since it doesn't exist in contract)
 export function useTransferAdmin() {
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   const currentAccount = useCurrentAccount();
   const [loading, setLoading] = useState(false);
 
+  // Since transfer_admin doesn't exist in the contract, we'll make this a no-op
+  // In a real implementation, you would need to add this function to the smart contract
   const transferAdmin = async (newAdminAddress: string) => {
     if (currentAccount?.address !== CONTRACT_CONFIG.ADMIN_ADDRESS) {
       throw new Error('Only current admin can transfer admin privileges');
     }
 
-    setLoading(true);
-    const tx = new Transaction();
-    
-    tx.moveCall({
-      target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.CERTIFICATE_REGISTRY}::transfer_admin`,
-      arguments: [
-        tx.object(CONTRACT_CONFIG.REGISTRY_ID),
-        tx.pure.address(newAdminAddress)
-      ]
-    });
-
-    return new Promise((resolve, reject) => {
-      signAndExecute(
-        { transaction: tx },
-        {
-          onSuccess: (result) => {
-            setLoading(false);
-            resolve(result);
-          },
-          onError: (error) => {
-            setLoading(false);
-            reject(error);
-          },
-        }
-      );
-    });
+    throw new Error('Transfer admin functionality not implemented in smart contract. Please add transfer_admin function to the contract.');
   };
 
   const isCurrentAdmin = currentAccount?.address === CONTRACT_CONFIG.ADMIN_ADDRESS;
@@ -640,13 +684,18 @@ export function useVerifyContract() {
 // Utility function to convert SuiCertificate to Certificate type
 export function convertSuiCertificateToLocal(suiCert: SuiCertificate): Certificate {
   // For encrypted certificates, show encrypted status
-  const credentialType = suiCert.encrypted_credential_type 
+  // For non-encrypted certificates, show the actual credential type
+  const credentialType = suiCert.encrypted_credential_type && suiCert.encrypted_credential_type.length > 0
     ? '[ENCRYPTED]' 
-    : (suiCert.credential_type || 'Unknown');
+    : (suiCert.credential_type && suiCert.credential_type !== 'Unknown Credential' 
+        ? suiCert.credential_type 
+        : 'Unknown Credential');
   
-  const grade = suiCert.encrypted_grade 
+  const grade = suiCert.encrypted_grade && suiCert.encrypted_grade.length > 0
     ? '[ENCRYPTED]' 
-    : (suiCert.grade || 'Not specified');
+    : (suiCert.grade && suiCert.grade !== 'Not specified' 
+        ? suiCert.grade 
+        : 'Not specified');
 
   return {
     id: suiCert.id,

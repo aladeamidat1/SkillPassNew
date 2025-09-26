@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useMintCertificate, useMintEncryptedCertificate, useRevokeCertificate, useVerifyContract, useUniversityAuth, useIssuedCertificates, CONTRACT_CONFIG } from '../hooks/useContract';
+import { useMintCertificate, useMintEncryptedCertificate, useRevokeCertificate, useVerifyContract, useUniversityAuth, useIssuedCertificates, useCheckUniversityAuthorization, CONTRACT_CONFIG } from '../hooks/useContract';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { PlusCircle, Trash2, Shield, Lock, Unlock, Award, Loader2, AlertTriangle, CheckCircle, UserX, X } from 'lucide-react';
 
@@ -33,6 +33,7 @@ const UniversityPortal: React.FC = () => {
   const { revokeCertificate, loading: revokeLoading } = useRevokeCertificate();
   const { contractStatus, verifyContract } = useVerifyContract();
   const { isAuthorized, loading: authLoading, checkAuthorization } = useUniversityAuth();
+  const { checkUniversityAuthorization, loading: checkAuthLoading } = useCheckUniversityAuthorization();
   const { certificates: issuedCertificates, loading: certificatesLoading, refetch: refetchCertificates } = useIssuedCertificates();
   
   const [showForm, setShowForm] = useState(false);
@@ -44,9 +45,16 @@ const UniversityPortal: React.FC = () => {
   // Refetch certificates when a new one is issued
   useEffect(() => {
     if (!mintLoading && !encryptedMintLoading) {
+      console.log('Refetching certificates after minting');
       refetchCertificates();
     }
   }, [mintLoading, encryptedMintLoading, refetchCertificates]);
+
+  // Also refetch when the component mounts or account changes
+  useEffect(() => {
+    console.log('UniversityPortal mounted or account changed, refetching certificates');
+    refetchCertificates();
+  }, [currentAccount?.address, refetchCertificates]);
 
   if (!currentAccount) {
     return (
@@ -80,6 +88,12 @@ const UniversityPortal: React.FC = () => {
       credentialType: formData.get('credentialType') as string,
       grade: formData.get('grade') as string || undefined,
     };
+
+    // Validate student address format
+    if (!certificateData.studentAddress || !certificateData.studentAddress.startsWith('0x')) {
+      showToast('❌ Invalid student address. Please enter a valid Sui address starting with 0x', 'error');
+      return;
+    }
 
     try {
       if (useEncryption) {
@@ -398,7 +412,37 @@ const UniversityPortal: React.FC = () => {
         )}
 
         <div>
-          <h3 className="text-2xl font-bold mb-4 font-heading">Issued Credentials</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-2xl font-bold font-heading">Issued Credentials</h3>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  console.log('Debug: Current account:', currentAccount?.address);
+                  refetchCertificates();
+                }}
+                className="flex items-center gap-1 text-sm bg-surface-light dark:bg-surface hover:bg-primary/10 px-3 py-1 rounded-full transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Debug</span>
+              </button>
+              <button 
+                onClick={refetchCertificates}
+                disabled={certificatesLoading}
+                className="flex items-center gap-1 text-sm bg-surface-light dark:bg-surface hover:bg-primary/10 px-3 py-1 rounded-full transition-colors disabled:opacity-50"
+              >
+                {certificatesLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
           <div className="bg-surface-light/80 dark:bg-surface/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden border border-white/10">
             {certificatesLoading ? (
               <div className="p-8 text-center">

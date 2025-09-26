@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import CertificateCard from '../components/CertificateCard';
 import { useCertificates, convertSuiCertificateToLocal } from '../hooks/useContract';
 import { useCurrentAccount } from '@mysten/dapp-kit';
@@ -7,6 +7,13 @@ import { Loader2, Award, Plus } from 'lucide-react';
 const StudentDashboard: React.FC = () => {
   const currentAccount = useCurrentAccount();
   const { certificates, loading, error, refetch } = useCertificates();
+
+  // Refetch certificates when account changes
+  useEffect(() => {
+    if (currentAccount) {
+      refetch();
+    }
+  }, [currentAccount, refetch]);
 
   if (!currentAccount) {
     return (
@@ -79,6 +86,15 @@ const StudentDashboard: React.FC = () => {
             <div className="w-2 h-2 bg-primary rounded-full"></div>
             <span>{certificates.length} Certificates</span>
           </div>
+          <button 
+            onClick={refetch}
+            className="flex items-center gap-1 text-xs bg-surface-light dark:bg-surface hover:bg-primary/10 px-2 py-1 rounded-full transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 

@@ -11,6 +11,7 @@ const AdminDashboard: React.FC = () => {
   const [newAdminAddress, setNewAdminAddress] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showTransferForm, setShowTransferForm] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   // Check if current user is admin
   if (!currentAccount || !isAdmin) {
@@ -57,13 +58,16 @@ const AdminDashboard: React.FC = () => {
     if (!newAdminAddress.trim()) return;
 
     try {
+      setTransferError(null);
       await transferAdmin(newAdminAddress);
       setNewAdminAddress('');
       setShowTransferForm(false);
       alert('Admin privileges transferred successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to transfer admin:', error);
-      alert('Failed to transfer admin privileges. Please check the console for details.');
+      setTransferError(error.message || 'Failed to transfer admin privileges. This functionality may not be implemented in the smart contract yet.');
+      // Alert with more detailed error message
+      alert(`Failed to transfer admin privileges: ${error.message || 'Unknown error'}. Please check the console for details.`);
     }
   };
 
@@ -194,6 +198,12 @@ const AdminDashboard: React.FC = () => {
         {/* Transfer Admin Form */}
         {showTransferForm && (
           <div className="mb-6 p-4 bg-background-light dark:bg-background rounded-lg border border-yellow-500/20">
+            <div className="mb-4 p-3 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+              <p className="text-yellow-600 dark:text-yellow-400 text-sm">
+                ⚠️ Note: The transfer admin functionality is not currently implemented in the smart contract. 
+                You'll need to add a `transfer_admin` function to the Move contract to enable this feature.
+              </p>
+            </div>
             <form onSubmit={handleTransferAdmin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary mb-2">
@@ -207,6 +217,9 @@ const AdminDashboard: React.FC = () => {
                   className="w-full bg-surface-light dark:bg-surface rounded-lg border border-white/10 p-3 text-text-primary-light dark:text-text-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
                   required
                 />
+                {transferError && (
+                  <p className="mt-2 text-sm text-red-500">{transferError}</p>
+                )}
                 <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
                   Warning: This action will permanently transfer admin privileges. Make sure you trust this address.
                 </p>
@@ -222,7 +235,10 @@ const AdminDashboard: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowTransferForm(false)}
+                  onClick={() => {
+                    setShowTransferForm(false);
+                    setTransferError(null);
+                  }}
                   className="px-4 py-2 text-text-secondary-light dark:text-text-secondary hover:text-text-primary-light dark:hover:text-text-primary transition-colors"
                 >
                   Cancel
