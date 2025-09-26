@@ -8,16 +8,12 @@ const StudentDashboard: React.FC = () => {
   const currentAccount = useCurrentAccount();
   const { certificates, loading, error, refetch } = useCertificates();
 
-  // Refetch certificates when account changes
+  // Fetch certificates only once when component mounts
   useEffect(() => {
     if (currentAccount) {
-      // Add a small delay to prevent excessive requests
-      const timer = setTimeout(() => {
-        refetch();
-      }, 500);
-      return () => clearTimeout(timer);
+      refetch();
     }
-  }, [currentAccount?.address]);
+  }, []); // Empty dependency array means this runs only once on mount
 
   if (!currentAccount) {
     return (

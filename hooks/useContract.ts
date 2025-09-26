@@ -156,16 +156,8 @@ export function useCertificates() {
     await fetchCertificatesInternal();
   };
 
-  useEffect(() => {
-    // Only fetch when account changes, not on every render
-    // Add a delay to prevent immediate requests on mount
-    if (currentAccount?.address) {
-      const timer = setTimeout(() => {
-        fetchCertificates();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentAccount?.address]);
+  // Removed automatic fetching to prevent continuous refetching
+  // Certificates will only be fetched when user manually clicks refresh
 
   return { certificates, loading, error, refetch: fetchCertificates };
 }
@@ -309,16 +301,8 @@ export function useIssuedCertificates() {
     await fetchIssuedCertificatesInternal();
   };
 
-  useEffect(() => {
-    // Only fetch when account changes, not on every render
-    // Add a delay to prevent immediate requests on mount
-    if (currentAccount?.address) {
-      const timer = setTimeout(() => {
-        fetchIssuedCertificates();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentAccount?.address]);
+  // Removed automatic fetching to prevent continuous refetching
+  // Certificates will only be fetched when user manually clicks refresh
 
   return { certificates, loading, error, refetch: fetchIssuedCertificates };
 }

@@ -54,17 +54,13 @@ const UniversityPortal: React.FC = () => {
     }
   }, [mintLoading, encryptedMintLoading, refetchCertificates]);
 
-  // Also refetch when the component mounts or account changes
+  // Fetch certificates only once when component mounts
   useEffect(() => {
     if (currentAccount?.address) {
-      console.log('UniversityPortal mounted or account changed, refetching certificates');
-      // Add a small delay to prevent excessive requests
-      const timer = setTimeout(() => {
-        refetchCertificates();
-      }, 500);
-      return () => clearTimeout(timer);
+      console.log('UniversityPortal mounted, fetching certificates');
+      refetchCertificates();
     }
-  }, [currentAccount?.address]);
+  }, []); // Empty dependency array means this runs only once on mount
 
   if (!currentAccount) {
     return (
