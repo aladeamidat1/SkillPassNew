@@ -11,9 +11,13 @@ const StudentDashboard: React.FC = () => {
   // Refetch certificates when account changes
   useEffect(() => {
     if (currentAccount) {
-      refetch();
+      // Add a small delay to prevent excessive requests
+      const timer = setTimeout(() => {
+        refetch();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [currentAccount, refetch]);
+  }, [currentAccount?.address]);
 
   if (!currentAccount) {
     return (

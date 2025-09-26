@@ -7,11 +7,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const { networkConfig } = createNetworkConfig({
   localnet: { url: getFullnodeUrl('localnet') },
   devnet: { url: getFullnodeUrl('devnet') },
-  testnet: { url: getFullnodeUrl('testnet') },
+  testnet: { 
+    url: 'https://sui-testnet-endpoint.mystenlabs.com/'  // Using Mysten Labs endpoint to avoid rate limits
+  },
   mainnet: { url: getFullnodeUrl('mainnet') },
 });
 
-const queryClient = new QueryClient();
+// Create a query client with longer stale time to reduce requests
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 2, // Reduce retry attempts
+      refetchOnWindowFocus: false, // Disable refetching on window focus to reduce requests
+    },
+  },
+});
 
 interface SuiWalletProviderProps {
   children: React.ReactNode;

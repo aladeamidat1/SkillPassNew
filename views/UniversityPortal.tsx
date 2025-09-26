@@ -52,9 +52,15 @@ const UniversityPortal: React.FC = () => {
 
   // Also refetch when the component mounts or account changes
   useEffect(() => {
-    console.log('UniversityPortal mounted or account changed, refetching certificates');
-    refetchCertificates();
-  }, [currentAccount?.address, refetchCertificates]);
+    if (currentAccount?.address) {
+      console.log('UniversityPortal mounted or account changed, refetching certificates');
+      // Add a small delay to prevent excessive requests
+      const timer = setTimeout(() => {
+        refetchCertificates();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentAccount?.address]);
 
   if (!currentAccount) {
     return (

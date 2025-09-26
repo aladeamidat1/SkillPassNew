@@ -72,6 +72,7 @@ const AnimatedBackground: React.FC = () => {
           height: '100%',
           zIndex: 1
         }}
+        frameloop="demand" // Reduce CPU usage when not in focus
       >
         <Stars theme={theme} />
       </Canvas>

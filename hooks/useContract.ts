@@ -8,7 +8,7 @@ import { Certificate } from '../types';
 export const CONTRACT_CONFIG = {
   PACKAGE_ID: "0xf1cb82954194f281b4bcddee3b8922b81322cd742d2ab23d169dfaf11883c736",
   REGISTRY_ID: "0x6c0bab54d2c4ba3caba62063cb7e972370e60deb9dbbe2fd46f825897bde0bdd", 
-  NETWORK: "https://fullnode.testnet.sui.io:443", 
+  NETWORK: "https://sui-testnet-endpoint.mystenlabs.com/", 
   MODULE_NAME: "skillpass",
   CERTIFICATE_REGISTRY: "certificate_registry",
   ADMIN_ADDRESS: "0x83b3e15b0f43aacdbd39ede604391ef9720df83b33420fb72deef7f8e795cbe9"
@@ -42,7 +42,7 @@ export function useCertificates() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCertificates = async () => {
+  const fetchCertificatesInternal = async (retryCount = 0) => {
     if (!currentAccount) {
       setCertificates([]);
       return;
@@ -126,14 +126,32 @@ export function useCertificates() {
       setCertificates(certificateData);
     } catch (err) {
       console.error('Error fetching certificates:', err);
-      setError('Failed to fetch certificates: ' + (err as Error).message);
+      
+      // Implement retry logic with max attempts to prevent infinite loops
+      if (retryCount < 3) {
+        console.log(`Retrying certificate fetch (${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchCertificatesInternal(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      
+      setError('Failed to fetch certificates after multiple attempts. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
+  
+  const fetchCertificates = async () => {
+    // Public function without retry parameter for external use
+    await fetchCertificatesInternal();
+  };
 
   useEffect(() => {
-    fetchCertificates();
+    // Only fetch when account changes, not on every render
+    if (currentAccount?.address) {
+      fetchCertificates();
+    }
   }, [currentAccount?.address]);
 
   return { certificates, loading, error, refetch: fetchCertificates };
@@ -147,7 +165,7 @@ export function useIssuedCertificates() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchIssuedCertificates = async () => {
+  const fetchIssuedCertificatesInternal = async (retryCount = 0) => {
     if (!currentAccount) {
       setCertificates([]);
       return;
@@ -165,29 +183,20 @@ export function useIssuedCertificates() {
         limit: 100
       });
 
-      console.log('Found events:', events.data.length);
-      console.log('Current university:', currentAccount.address);
-
       // Filter events to only those issued by current university
       const universityEvents = events.data.filter(event => {
         const university = (event.parsedJson as any)?.university;
-        console.log('Event university:', university);
         return university === currentAccount.address;
       });
 
-      console.log('University events:', universityEvents.length);
-
       // Get certificate objects for these events
       const certificateIds = universityEvents.map(event => (event.parsedJson as any)?.certificate_id).filter(Boolean);
-      
-      console.log('Certificate IDs to fetch:', certificateIds);
       
       // Fetch certificate details
       const certificateData: SuiCertificate[] = [];
       
       for (const certId of certificateIds) {
         try {
-          console.log('Fetching certificate:', certId);
           const response = await suiClient.getObject({
             id: certId,
             options: {
@@ -195,8 +204,6 @@ export function useIssuedCertificates() {
               showDisplay: true,
             },
           });
-
-          console.log('Certificate response:', response);
 
           if (response.data?.content && 'fields' in response.data.content) {
             const fields = response.data.content.fields as any;
@@ -257,18 +264,35 @@ export function useIssuedCertificates() {
         }
       }
 
-      console.log('Final certificate data:', certificateData);
       setCertificates(certificateData);
     } catch (err) {
       console.error('Error fetching issued certificates:', err);
-      setError('Failed to fetch issued certificates: ' + (err as Error).message);
+      
+      // Implement retry logic with max attempts to prevent infinite loops
+      if (retryCount < 3) {
+        console.log(`Retrying issued certificate fetch (${retryCount + 1}/3)`);
+        setTimeout(() => {
+          fetchIssuedCertificatesInternal(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      
+      setError('Failed to fetch issued certificates after multiple attempts. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
+  
+  const fetchIssuedCertificates = async () => {
+    // Public function without retry parameter for external use
+    await fetchIssuedCertificatesInternal();
+  };
 
   useEffect(() => {
-    fetchIssuedCertificates();
+    // Only fetch when account changes, not on every render
+    if (currentAccount?.address) {
+      fetchIssuedCertificates();
+    }
   }, [currentAccount?.address]);
 
   return { certificates, loading, error, refetch: fetchIssuedCertificates };
